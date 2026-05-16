@@ -15,6 +15,7 @@ from .config import settings
 from .core.database import init_db
 from .core.redis_client import redis_client, FEED_SOURCES_KEY
 from .core.default_feeds import DEFAULT_THAI_FEEDS
+from .core.auth import require_api_key
 from .api.routes import feed, draft, brain, studio, settings as settings_router
 import json
 import uuid
@@ -93,12 +94,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers
-app.include_router(feed.router, prefix="/api/v1")
-app.include_router(draft.router, prefix="/api/v1")
-app.include_router(brain.router, prefix="/api/v1")
-app.include_router(studio.router, prefix="/api/v1")
-app.include_router(settings_router.router, prefix="/api/v1")
+# Register routers — all protected by API key (no-op when API_KEY is empty)
+_auth = [require_api_key]
+app.include_router(feed.router, prefix="/api/v1", dependencies=_auth)
+app.include_router(draft.router, prefix="/api/v1", dependencies=_auth)
+app.include_router(brain.router, prefix="/api/v1", dependencies=_auth)
+app.include_router(studio.router, prefix="/api/v1", dependencies=_auth)
+app.include_router(settings_router.router, prefix="/api/v1", dependencies=_auth)
 
 
 # WebSocket manager for real-time feed updates

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { settingsApi } from '../services/api'
-import { Settings, Rss, BookOpen, Plus, Trash2, Download, Save } from 'lucide-react'
+import { Settings, Rss, BookOpen, Plus, Trash2, Download, Save, Zap, AlertTriangle } from 'lucide-react'
 import { clsx } from 'clsx'
 import { toast } from 'sonner'
 
-type Tab = 'feeds' | 'style'
+type Tab = 'feeds' | 'style' | 'usage'
 
 const STRUCTURE_OPTIONS = [
   { value: 'inverted_pyramid', label: 'Inverted Pyramid', desc: 'สำคัญที่สุดก่อน (มาตรฐานข่าว)' },
@@ -31,10 +31,12 @@ export default function SettingsPage() {
         <div className="flex border-b">
           <TabBtn active={tab === 'feeds'} onClick={() => setTab('feeds')} icon={<Rss size={15} />} label="แหล่งข่าว RSS" />
           <TabBtn active={tab === 'style'} onClick={() => setTab('style')} icon={<BookOpen size={15} />} label="Style Constitution" />
+          <TabBtn active={tab === 'usage'} onClick={() => setTab('usage')} icon={<Zap size={15} />} label="Token Usage" />
         </div>
 
         {tab === 'feeds' && <FeedsTab />}
         {tab === 'style' && <StyleConstitutionTab />}
+        {tab === 'usage' && <TokenUsageTab />}
       </div>
     </div>
   )
@@ -315,6 +317,93 @@ function StyleConstitutionTab() {
         <Save size={16} />
         {saveMutation.isPending ? 'กำลังบันทึก...' : 'บันทึก Style Constitution'}
       </button>
+    </div>
+  )
+}
+
+// ── Token Usage Tab ───────────────────────────────────────────────────────────
+
+function TokenUsageTab() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['token-usage'],
+    queryFn: settingsApi.getTokenUsage,
+    refetchInterval: 60000,
+  })
+
+  if (isLoading) {
+    return <div className="animate-pulse text-sm text-gray-400 py-8 text-center">กำลังโหลด...</div>
+  }
+
+  const usage = data || { monthly_tokens: 0, estimated_cost_usd: 0, budget_pct: 0, alert: false, daily_trend: [] }
+  const pct = Math.min(usage.budget_pct || 0, 100)
+  const barColor = pct >= 80 ? 'bg-red-500' : pct >= 60 ? 'bg-amber-400' : 'bg-emerald-500'
+
+  return (
+    <div className="space-y-5">
+      {usage.alert && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
+          <AlertTriangle size={15} className="shrink-0" />
+          การใช้งานเกิน 80% ของงบประมาณ — พิจารณาเพิ่ม Budget หรือลดการใช้งาน
+        </div>
+      )}
+
+      {/* Monthly summary */}
+      <div className="bg-white border rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700">การใช้งาน Token เดือนนี้</h3>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-gray-900">{usage.monthly_tokens.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-0.5">Tokens ใช้แล้ว</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-violet-700">${usage.estimated_cost_usd.toFixed(4)}</div>
+            <div className="text-xs text-gray-400 mt-0.5">ค่าใช้จ่ายประมาณ (USD)</div>
+          </div>
+          <div>
+            <div className={clsx('text-2xl font-bold', pct >= 80 ? 'text-red-600' : 'text-gray-700')}>
+              {pct.toFixed(1)}%
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">ของงบประมาณ</div>
+          </div>
+        </div>
+        {usage.budget_tokens > 0 && (
+          <div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className={clsx('h-full rounded-full transition-all', barColor)} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0</span>
+              <span>{usage.budget_tokens.toLocaleString()} tokens</span>
+            </div>
+          </div>
+        )}
+        {!usage.budget_tokens && (
+          <p className="text-xs text-gray-400">ตั้ง MONTHLY_TOKEN_BUDGET ใน .env เพื่อดูการใช้งานแบบเปอร์เซ็นต์</p>
+        )}
+      </div>
+
+      {/* Daily trend */}
+      {usage.daily_trend?.length > 0 && (
+        <div className="bg-white border rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">7 วันย้อนหลัง</h3>
+          <div className="space-y-2">
+            {usage.daily_trend.map((day: { date: string; input_tokens: number; output_tokens: number; total: number }) => {
+              const maxTotal = Math.max(...usage.daily_trend.map((d: { total: number }) => d.total), 1)
+              const barW = Math.max((day.total / maxTotal) * 100, 2)
+              return (
+                <div key={day.date} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-20 shrink-0">{day.date.slice(5)}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="h-full bg-violet-400 rounded-full" style={{ width: `${barW}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-500 w-20 text-right">{day.total.toLocaleString()}</span>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-3">💡 Claude Haiku ≈ $0.25/Mtok · Opus ≈ $15/Mtok input</p>
+        </div>
+      )}
     </div>
   )
 }

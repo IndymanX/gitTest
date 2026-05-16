@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_BASE_URL: str = "https://api.elevenlabs.io/v1"
 
+    # API Key auth (leave empty to disable in dev mode)
+    API_KEY: str = ""
+
+    # Token cost tracking budget (0 = no limit)
+    MONTHLY_TOKEN_BUDGET: int = 0
+
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
 

@@ -10,6 +10,7 @@ from ...services.copyright_analysis import CopyrightAnalysisService
 from ...services.fact_checker import FactCheckerService
 from ...services.angle_generator import AngleGeneratorService
 from ...models.content import ContentFormat, Platform
+from ...workers.ai_tasks import detect_claims as detect_claims_task
 
 router = APIRouter(prefix="/draft", tags=["AI Drafting"])
 
@@ -89,13 +90,11 @@ async def generate_draft(request: DraftRequest):
         )
         result["copyright"] = copyright_result
 
-    # Auto fact check
+    # Async fact check — dispatches to Celery, returns task_id immediately
     if request.auto_check_facts:
-        fact_result = await fact_check_service.analyze_draft(
-            draft_text=draft.get("body", ""),
-            source_urls=[request.news_item.get("url", "")],
-        )
-        result["fact_check"] = fact_result
+        task = detect_claims_task.delay(draft_text=draft.get("body", ""))
+        result["fact_check"] = None
+        result["fact_check_task_id"] = task.id
 
     return result
 
@@ -147,11 +146,27 @@ async def check_copyright(request: CopyrightRequest):
 
 @router.post("/factcheck")
 async def fact_check(request: FactCheckRequest):
-    """Run fact-check claim detection on a draft."""
+    """Run fact-check claim detection on a draft (blocking)."""
     return await fact_check_service.analyze_draft(
         draft_text=request.draft_text,
         source_urls=request.source_urls,
     )
+
+
+@router.get("/factcheck/status/{task_id}")
+async def fact_check_status(task_id: str):
+    """Poll async fact-check task status (dispatched by /draft/generate)."""
+    from celery.result import AsyncResult
+    from ...workers.celery_app import celery_app
+
+    result = AsyncResult(task_id, app=celery_app)
+    if result.state == "PENDING":
+        return {"status": "pending", "fact_check": None}
+    elif result.state == "SUCCESS":
+        return {"status": "done", "fact_check": result.result}
+    elif result.state == "FAILURE":
+        return {"status": "error", "fact_check": None, "error": str(result.info)}
+    return {"status": result.state.lower(), "fact_check": None}
 
 
 @router.post("/repurpose")

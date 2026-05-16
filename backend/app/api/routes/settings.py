@@ -1,12 +1,14 @@
-"""Settings API routes — RSS sources + Style Constitution."""
+"""Settings API routes — RSS sources + Style Constitution + Token Usage."""
 import json
 import uuid
+from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
 from ...core.redis_client import redis_client, FEED_SOURCES_KEY
 from ...core.default_feeds import DEFAULT_THAI_FEEDS
+from ...config import settings
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -109,3 +111,34 @@ async def save_style_constitution(request: StyleConstitutionSave):
     data = request.model_dump()
     await redis_client.set(STYLE_CONSTITUTION_KEY, json.dumps(data))
     return {"message": "บันทึก Style Constitution สำเร็จ", "style_constitution": data}
+
+
+@router.get("/token-usage")
+async def get_token_usage():
+    """Return monthly token usage, cost estimate, and 7-day daily trend."""
+    monthly_total = int(await redis_client.get("token:monthly:default") or 0)
+
+    # Collect daily breakdown for last 7 days
+    today = date.today()
+    daily = []
+    for i in range(6, -1, -1):
+        day = (today - timedelta(days=i)).isoformat()
+        inp = int(await redis_client.get(f"token:daily:{day}:input") or 0)
+        out = int(await redis_client.get(f"token:daily:{day}:output") or 0)
+        daily.append({"date": day, "input_tokens": inp, "output_tokens": out, "total": inp + out})
+
+    # Rough cost estimate (uses default model pricing; mix of haiku/opus in practice)
+    cost_usd = (monthly_total / 1_000_000) * 15.0  # conservative opus-level estimate
+
+    budget_pct = 0.0
+    if settings.MONTHLY_TOKEN_BUDGET > 0:
+        budget_pct = min(monthly_total / settings.MONTHLY_TOKEN_BUDGET * 100, 100)
+
+    return {
+        "monthly_tokens": monthly_total,
+        "estimated_cost_usd": round(cost_usd, 4),
+        "budget_tokens": settings.MONTHLY_TOKEN_BUDGET,
+        "budget_pct": round(budget_pct, 1),
+        "alert": budget_pct >= 80,
+        "daily_trend": daily,
+    }

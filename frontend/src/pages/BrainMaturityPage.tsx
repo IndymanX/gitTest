@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { brainApi } from '../services/api'
-import { Brain, Upload, TrendingUp, BookOpen } from 'lucide-react'
+import { Brain, Upload, TrendingUp, BookOpen, FileText, Layers } from 'lucide-react'
 import { clsx } from 'clsx'
 import { toast } from 'sonner'
 
@@ -12,6 +12,9 @@ export default function BrainMaturityPage() {
   const [feedback, setFeedback] = useState<'accepted' | 'rejected' | 'edited'>('accepted')
   const [editedVersion, setEditedVersion] = useState('')
   const [showEdited, setShowEdited] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [showBulk, setShowBulk] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: profileData, refetch } = useQuery({
     queryKey: ['brain-profile', DEFAULT_ORG_PROFILE],
@@ -26,6 +29,19 @@ export default function BrainMaturityPage() {
       organization_id: 'org-1',
     }),
     onSuccess: () => { toast.success('สร้าง Profile สำเร็จ'); refetch() },
+  })
+
+  const bulkLearnMutation = useMutation({
+    mutationFn: () => {
+      const samples = bulkText.split('---').map(s => s.trim()).filter(Boolean)
+      return brainApi.bulkLearn({ profile_id: DEFAULT_ORG_PROFILE, samples, feedback: 'accepted' })
+    },
+    onSuccess: (data) => {
+      toast.success(`เรียนรู้จาก ${data.processed} บทความสำเร็จ! Maturity: ${data.profile.maturity_score.toFixed(1)}%`)
+      setBulkText('')
+      refetch()
+    },
+    onError: () => toast.error('เกิดข้อผิดพลาด'),
   })
 
   const learnMutation = useMutation({
@@ -146,12 +162,75 @@ export default function BrainMaturityPage() {
           </>
         )}
 
+        {/* Bulk import */}
+        {profile && (
+          <div className="bg-violet-50 border border-violet-100 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers size={16} className="text-violet-600" />
+                <span className="text-sm font-semibold text-violet-800">อัพโหลดตัวอย่างงานเขียนแบบกลุ่ม</span>
+                <span className="text-xs text-violet-500">คั่นแต่ละบทความด้วย ---</span>
+              </div>
+              <button
+                onClick={() => setShowBulk(v => !v)}
+                className="text-xs text-violet-600 hover:underline"
+              >
+                {showBulk ? 'ซ่อน' : 'เปิด'}
+              </button>
+            </div>
+            {showBulk && (
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <textarea
+                    value={bulkText}
+                    onChange={e => setBulkText(e.target.value)}
+                    placeholder={'บทความที่ 1...\n---\nบทความที่ 2...\n---\nบทความที่ 3...'}
+                    className="flex-1 border rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-violet-500 min-h-[120px] resize-y bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".txt"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = ev => setBulkText(ev.target?.result as string || '')
+                      reader.readAsText(file)
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs text-violet-600 border border-violet-200 rounded-lg px-3 py-1.5 bg-white hover:bg-violet-50"
+                  >
+                    <FileText size={12} /> เลือกไฟล์ .txt
+                  </button>
+                  <span className="text-xs text-violet-500">
+                    {bulkText ? `${bulkText.split('---').filter(s => s.trim()).length} บทความ` : ''}
+                  </span>
+                  <button
+                    onClick={() => bulkLearnMutation.mutate()}
+                    disabled={bulkLearnMutation.isPending || !bulkText.trim()}
+                    className="ml-auto flex items-center gap-1.5 bg-violet-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <Brain size={13} />
+                    {bulkLearnMutation.isPending ? 'กำลังเรียนรู้...' : 'เรียนรู้แบบกลุ่ม'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Learn form */}
         {profile && (
           <div className="bg-white border rounded-xl p-6 space-y-4">
             <h2 className="font-semibold text-gray-800 flex items-center gap-2">
               <Upload size={16} className="text-violet-600" />
-              เพิ่มตัวอย่างการเรียนรู้
+              เพิ่มตัวอย่างการเรียนรู้ (ทีละชิ้น)
             </h2>
 
             <div>

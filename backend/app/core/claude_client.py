@@ -3,10 +3,17 @@ Centralized Claude API client with cost tracking and fallback.
 """
 import anthropic
 from typing import Optional, AsyncIterator
+from datetime import date
 from ..config import settings
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Pricing per million tokens (May 2026 approximation)
+_COST_PER_M = {
+    "input": {settings.CLAUDE_MODEL: 15.0, settings.CLAUDE_FAST_MODEL: 0.25},
+    "output": {settings.CLAUDE_MODEL: 75.0, settings.CLAUDE_FAST_MODEL: 1.25},
+}
 
 
 class ClaudeClient:
@@ -14,6 +21,22 @@ class ClaudeClient:
         self.client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.default_model = settings.CLAUDE_MODEL
         self.fast_model = settings.CLAUDE_FAST_MODEL
+
+    async def _track_tokens(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        """Increment Redis token counters (monthly total + daily for trend)."""
+        try:
+            from .redis_client import redis_client
+            today = date.today().isoformat()
+            pipe = redis_client.pipeline()
+            pipe.incrby("token:monthly:default", input_tokens + output_tokens)
+            pipe.expire("token:monthly:default", 60 * 60 * 24 * 32)
+            pipe.incrby(f"token:daily:{today}:input", input_tokens)
+            pipe.incrby(f"token:daily:{today}:output", output_tokens)
+            pipe.expire(f"token:daily:{today}:input", 60 * 60 * 24 * 8)
+            pipe.expire(f"token:daily:{today}:output", 60 * 60 * 24 * 8)
+            await pipe.execute()
+        except Exception as e:
+            logger.debug(f"Token tracking skipped: {e}")
 
     async def complete(
         self,
@@ -38,6 +61,11 @@ class ClaudeClient:
 
         try:
             response = await self.client.messages.create(**kwargs)
+            await self._track_tokens(
+                selected_model,
+                response.usage.input_tokens,
+                response.usage.output_tokens,
+            )
             return response.content[0].text
         except anthropic.APIError as e:
             logger.error(f"Claude API error: {e}")

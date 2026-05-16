@@ -1,7 +1,7 @@
 """AI Brain Maturity API routes."""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Literal
 
 from ...services.brain_maturity import BrainMaturityService
 
@@ -113,6 +113,56 @@ async def get_style_prompt(profile_id: str):
         "style_prompt": prompt,
         "maturity_score": profile.get("maturity_score", 0),
         "is_usable": profile.get("maturity_score", 0) >= 20,
+    }
+
+
+class BulkLearnRequest(BaseModel):
+    profile_id: str
+    samples: List[str]
+    feedback: Literal["accepted", "rejected", "edited"] = "accepted"
+
+
+@router.post("/bulk-learn")
+async def bulk_learn(request: BulkLearnRequest):
+    """
+    Batch-train Brain profile from multiple articles in one call.
+    Useful for cold-start onboarding: paste 10+ articles, learn in one step.
+    Max 50 samples per request.
+    """
+    if not request.samples:
+        raise HTTPException(status_code=400, detail="samples list is empty")
+
+    samples = [s for s in request.samples if s.strip()][:50]
+
+    profile = _profiles.get(request.profile_id)
+    if not profile:
+        profile = {
+            "id": request.profile_id,
+            "maturity_score": 0.0,
+            "total_samples_learned": 0,
+            "total_feedback_received": 0,
+            "accepted_count": 0,
+            "rejected_count": 0,
+            "edited_count": 0,
+            "vocabulary_distribution": {},
+            "sentence_patterns": [],
+        }
+
+    for sample in samples:
+        profile = await brain_service.learn_from_sample(
+            profile=profile,
+            sample_text=sample,
+            feedback=request.feedback,
+        )
+
+    _profiles[request.profile_id] = profile
+    report = await brain_service.get_maturity_report(profile)
+
+    return {
+        "profile": profile,
+        "report": report,
+        "processed": len(samples),
+        "message": f"เรียนรู้จาก {len(samples)} บทความสำเร็จ Maturity: {profile['maturity_score']:.1f}%",
     }
 
 

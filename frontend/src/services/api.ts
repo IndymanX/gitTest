@@ -145,6 +145,15 @@ export const brainApi = {
     const { data } = await api.get('/brain/profiles')
     return data
   },
+
+  bulkLearn: async (params: {
+    profile_id: string
+    samples: string[]
+    feedback?: 'accepted' | 'rejected' | 'edited'
+  }) => {
+    const { data } = await api.post('/brain/bulk-learn', params)
+    return data
+  },
 }
 
 // ── Content Studio ─────────────────────────────────────────────────────────
@@ -225,6 +234,11 @@ export const settingsApi = {
     min_sources_required?: number
   }) => {
     const { data } = await api.post('/settings/style-constitution', params)
+    return data
+  },
+
+  getTokenUsage: async () => {
+    const { data } = await api.get('/settings/token-usage')
     return data
   },
 }
