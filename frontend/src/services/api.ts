@@ -243,4 +243,34 @@ export const settingsApi = {
   },
 }
 
+// ── Social Publisher ────────────────────────────────────────────────────────
+
+export const publisherApi = {
+  getStatus: async (): Promise<{ line: boolean; facebook: boolean; twitter: boolean }> => {
+    const { data } = await api.get('/publish/status')
+    return data
+  },
+
+  send: async (params: {
+    title: string
+    body: string
+    platforms: string[]
+    link?: string
+    image_url?: string
+    platform_overrides?: Record<string, string>
+  }) => {
+    const { data } = await api.post('/publish/send', params)
+    return data
+  },
+}
+
+// ── Fact-check polling ──────────────────────────────────────────────────────
+
+export const factCheckApi = {
+  getStatus: async (taskId: string) => {
+    const { data } = await api.get(`/draft/factcheck/status/${taskId}`)
+    return data
+  },
+}
+
 export default api

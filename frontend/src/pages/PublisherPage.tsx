@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import { draftApi } from '../services/api'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { draftApi, publisherApi } from '../services/api'
 import type { Platform } from '../types'
-import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send } from 'lucide-react'
+import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send, Radio } from 'lucide-react'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 
@@ -28,11 +28,41 @@ function readingTime(text: string) {
   return `${minutes} นาที`
 }
 
+const PUBLISHABLE: Platform[] = ['line', 'facebook', 'twitter']
+
 export default function PublisherPage() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [activePlatform, setActivePlatform] = useState<Platform>('website')
   const [adaptedContent, setAdaptedContent] = useState<Record<string, string>>({})
+  const [publishResults, setPublishResults] = useState<Record<string, string>>({})
+
+  const { data: publishStatus } = useQuery({
+    queryKey: ['publish-status'],
+    queryFn: publisherApi.getStatus,
+    staleTime: 60000,
+  })
+
+  const publishMutation = useMutation({
+    mutationFn: (platform: Platform) => publisherApi.send({
+      title,
+      body: adaptedContent[platform] || body,
+      platforms: [platform],
+      platform_overrides: adaptedContent[platform] ? { [platform]: adaptedContent[platform] } : undefined,
+    }),
+    onSuccess: (data, platform) => {
+      const result = data.results?.[platform]
+      if (result?.status === 'published') {
+        setPublishResults(prev => ({ ...prev, [platform]: 'published' }))
+        toast.success(`เผยแพร่ไปยัง ${platform} สำเร็จ`)
+      } else if (result?.status === 'skipped') {
+        toast.error(`ยังไม่ได้ตั้งค่า API Key สำหรับ ${platform}`)
+      } else {
+        toast.error(`เกิดข้อผิดพลาด: ${result?.reason || 'Unknown error'}`)
+      }
+    },
+    onError: () => toast.error('เกิดข้อผิดพลาดในการเผยแพร่'),
+  })
 
   const adaptMutation = useMutation({
     mutationFn: (platform: Platform) => draftApi.adaptForPlatform(platform, { title, body }),
@@ -157,6 +187,9 @@ export default function PublisherPage() {
                 {currentText && (
                   <span className="text-xs text-gray-400 font-normal">· {readingTime(currentText)} อ่าน</span>
                 )}
+                {publishResults[activePlatform] === 'published' && (
+                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">✓ เผยแพร่แล้ว</span>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -186,6 +219,16 @@ export default function PublisherPage() {
                     >
                       <Download size={12} /> .md
                     </button>
+                    {PUBLISHABLE.includes(activePlatform) && publishStatus?.[activePlatform as keyof typeof publishStatus] && (
+                      <button
+                        onClick={() => publishMutation.mutate(activePlatform)}
+                        disabled={publishMutation.isPending}
+                        className="flex items-center gap-1 text-xs bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg px-2.5 py-1.5 disabled:opacity-50"
+                      >
+                        <Radio size={11} />
+                        {publishMutation.isPending ? 'กำลังส่ง...' : 'เผยแพร่'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>

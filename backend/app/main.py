@@ -16,7 +16,7 @@ from .core.database import init_db
 from .core.redis_client import redis_client, FEED_SOURCES_KEY
 from .core.default_feeds import DEFAULT_THAI_FEEDS
 from .core.auth import require_api_key
-from .api.routes import feed, draft, brain, studio, settings as settings_router
+from .api.routes import feed, draft, brain, studio, settings as settings_router, publisher
 import json
 import uuid
 
@@ -101,6 +101,7 @@ app.include_router(draft.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(brain.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(studio.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(settings_router.router, prefix="/api/v1", dependencies=_auth)
+app.include_router(publisher.router, prefix="/api/v1", dependencies=_auth)
 
 
 # WebSocket manager for real-time feed updates

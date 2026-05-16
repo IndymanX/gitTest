@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import { draftApi } from '../../services/api'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { draftApi, factCheckApi } from '../../services/api'
 import type { NewsItem, DraftContent, CopyrightAnalysis, FactCheckResult, Platform, ContentFormat } from '../../types'
-import { FileText, Zap, Copy, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { FileText, Zap, Copy, RefreshCw, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { toast } from 'sonner'
 import CopyrightPanel from '../CopyrightAnalysis/CopyrightPanel'
@@ -35,8 +35,24 @@ export default function AIDrafting({ selectedItem }: Props) {
   const [draft, setDraft] = useState<DraftContent | null>(null)
   const [copyright, setCopyright] = useState<CopyrightAnalysis | null>(null)
   const [factCheck, setFactCheck] = useState<FactCheckResult | null>(null)
+  const [factCheckTaskId, setFactCheckTaskId] = useState<string | null>(null)
   const [showSeo, setShowSeo] = useState(false)
   const [editedBody, setEditedBody] = useState('')
+
+  // Poll for async fact-check result every 3 seconds until done
+  useQuery({
+    queryKey: ['factcheck-status', factCheckTaskId],
+    queryFn: () => factCheckApi.getStatus(factCheckTaskId!),
+    enabled: !!factCheckTaskId && !factCheck,
+    refetchInterval: 3000,
+    select: (data) => {
+      if (data.status === 'done' && data.fact_check) {
+        setFactCheck(data.fact_check)
+        setFactCheckTaskId(null)
+      }
+      return data
+    },
+  })
 
   const generateMutation = useMutation({
     mutationFn: () => draftApi.generate({
@@ -50,8 +66,13 @@ export default function AIDrafting({ selectedItem }: Props) {
     onSuccess: (data) => {
       setDraft(data.draft)
       setEditedBody(data.draft.body)
+      setFactCheck(null)
       if (data.copyright) setCopyright(data.copyright)
-      if (data.fact_check) setFactCheck(data.fact_check)
+      if (data.fact_check) {
+        setFactCheck(data.fact_check)
+      } else if (data.fact_check_task_id) {
+        setFactCheckTaskId(data.fact_check_task_id)
+      }
       toast.success('สร้างบทความสำเร็จ')
     },
     onError: () => toast.error('เกิดข้อผิดพลาดในการสร้างบทความ'),
@@ -66,7 +87,7 @@ export default function AIDrafting({ selectedItem }: Props) {
     }),
     onSuccess: (data) => {
       setCopyright(data)
-      toast.success('ตรวจลิขสิทธิ์เสร็จสิ้น')
+      toast.success('ตรวจลิขสิทธิ์ฉบับแก้ไข')
     },
   })
 
@@ -76,6 +97,7 @@ export default function AIDrafting({ selectedItem }: Props) {
   }
 
   const isLoading = generateMutation.isPending
+  const factCheckPending = !!factCheckTaskId && !factCheck
 
   return (
     <div className="flex flex-col h-full">
@@ -242,7 +264,14 @@ export default function AIDrafting({ selectedItem }: Props) {
             {/* Copyright Analysis */}
             {copyright && <CopyrightPanel analysis={copyright} />}
 
-            {/* Fact Check */}
+            {/* Fact Check — shows spinner while Celery task is running */}
+            {factCheckPending && (
+              <div className="bg-white border rounded-xl p-4 flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 size={14} className="animate-spin text-violet-500" />
+                กำลังตรวจสอบข้อเท็จจริง...
+                <span className="text-xs text-gray-400">(ทำงานเบื้องหลัง)</span>
+              </div>
+            )}
             {factCheck && <FactCheckPanel result={factCheck} />}
           </>
         )}

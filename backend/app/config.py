@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     # Token cost tracking budget (0 = no limit)
     MONTHLY_TOKEN_BUDGET: int = 0
 
+    # Social publishing (optional — leave empty to disable each platform)
+    LINE_NOTIFY_TOKEN: str = ""
+    FACEBOOK_PAGE_ID: str = ""
+    FACEBOOK_PAGE_ACCESS_TOKEN: str = ""
+    TWITTER_BEARER_TOKEN: str = ""
+    TWITTER_API_KEY: str = ""
+    TWITTER_API_SECRET: str = ""
+    TWITTER_ACCESS_TOKEN: str = ""
+    TWITTER_ACCESS_SECRET: str = ""
+
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
 
