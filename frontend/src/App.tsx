@@ -4,6 +4,9 @@ import { Toaster } from 'sonner'
 import Sidebar from './components/Layout/Sidebar'
 import DashboardPage from './pages/DashboardPage'
 import BrainMaturityPage from './pages/BrainMaturityPage'
+import ContentStudioPage from './pages/ContentStudioPage'
+import SettingsPage from './pages/SettingsPage'
+import PublisherPage from './pages/PublisherPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,8 +30,9 @@ export default function App() {
               <Route path="/draft" element={<DashboardPage />} />
               <Route path="/angles" element={<DashboardPage />} />
               <Route path="/brain" element={<BrainMaturityPage />} />
-              <Route path="/studio" element={<ContentStudioPlaceholder />} />
-              <Route path="/settings" element={<SettingsPlaceholder />} />
+              <Route path="/studio" element={<ContentStudioPage />} />
+              <Route path="/publisher" element={<PublisherPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
@@ -36,31 +40,5 @@ export default function App() {
         <Toaster position="top-right" richColors />
       </BrowserRouter>
     </QueryClientProvider>
-  )
-}
-
-function ContentStudioPlaceholder() {
-  return (
-    <div className="flex items-center justify-center h-full text-gray-400">
-      <div className="text-center">
-        <div className="text-4xl mb-3">🎨</div>
-        <h2 className="text-lg font-semibold text-gray-600">Content Studio</h2>
-        <p className="text-sm mt-1">Image Generation + TTS Voiceover</p>
-        <p className="text-xs mt-2 text-gray-300">Coming in Phase 2</p>
-      </div>
-    </div>
-  )
-}
-
-function SettingsPlaceholder() {
-  return (
-    <div className="flex items-center justify-center h-full text-gray-400">
-      <div className="text-center">
-        <div className="text-4xl mb-3">⚙️</div>
-        <h2 className="text-lg font-semibold text-gray-600">ตั้งค่าระบบ</h2>
-        <p className="text-sm mt-1">Style Constitution, API Keys, Organization</p>
-        <p className="text-xs mt-2 text-gray-300">Coming in Phase 2</p>
-      </div>
-    </div>
   )
 }

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
-  Radio, Brain, FileText, Shield, Layers, Mic, BarChart2, Settings,
+  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/draft', icon: FileText, label: 'AI Drafting' },
   { to: '/angles', icon: Layers, label: 'Angle Generator' },
   { to: '/studio', icon: Mic, label: 'Content Studio' },
+  { to: '/publisher', icon: Send, label: 'Publisher' },
   { to: '/brain', icon: BarChart2, label: 'Brain Maturity' },
 ]
 

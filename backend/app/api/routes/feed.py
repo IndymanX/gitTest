@@ -1,35 +1,27 @@
-"""Feed Heartbeat API routes."""
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
+"""Feed Heartbeat API routes — Redis-backed real-time feed."""
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Optional
 from pydantic import BaseModel
 import json
+import uuid
 
-from ...core.database import get_db
+from ...core.redis_client import redis_client, FEED_CACHE_KEY, FEED_SOURCES_KEY
 from ...services.feed_heartbeat import FeedHeartbeatService
 
 router = APIRouter(prefix="/feed", tags=["Feed Heartbeat"])
 heartbeat_service = FeedHeartbeatService()
 
-# In-memory cache for demo (replace with Redis in production)
-_feed_cache: dict = {}
 
-
-class FeedSourceCreate(BaseModel):
-    name: str
-    url: str
-    source_type: str = "rss"
-    reliability_score: float = 0.8
-
-
-class FeedSourceResponse(BaseModel):
-    id: str
-    name: str
-    url: str
-    source_type: str
-    reliability_score: float
-    is_active: bool
+async def _get_all_items() -> List[dict]:
+    """Load all feed items from Redis."""
+    raw = await redis_client.hgetall(FEED_CACHE_KEY)
+    items = []
+    for v in raw.values():
+        try:
+            items.append(json.loads(v))
+        except Exception:
+            pass
+    return items
 
 
 @router.get("/live")
@@ -39,11 +31,10 @@ async def get_live_feed(
     min_weight: float = 0.0,
 ):
     """
-    Get live news feed with editorial weight scores.
-    The core of Feed Heartbeat — real-time, prioritized news.
+    Get live news feed with editorial weight scores (Redis-backed).
+    Auto-sorted by Editorial Weight Score descending.
     """
-    # Return cached items (populated by background task)
-    items = list(_feed_cache.values())
+    items = await _get_all_items()
 
     if category:
         items = [x for x in items if x.get("category") == category]
@@ -57,24 +48,23 @@ async def get_live_feed(
 @router.get("/stats")
 async def get_feed_stats():
     """Get live statistics for the Feed Heartbeat dashboard."""
-    items = list(_feed_cache.values())
+    items = await _get_all_items()
     if not items:
         return {
             "total": 0, "breaking": 0, "urgent": 0,
             "can_wait": 0, "exclusive": 0, "last_hour": 0,
+            "avg_editorial_weight": 0,
         }
     return await heartbeat_service.get_live_stats(items)
 
 
 @router.post("/fetch")
-async def fetch_feeds(
-    background_tasks: BackgroundTasks,
-    urls: List[str],
-    source_name: str = "Manual",
-):
-    """Manually trigger feed fetch for given URLs."""
+async def fetch_feeds(urls: List[str], source_name: str = "Manual"):
+    """
+    Manually fetch RSS feeds from given URLs.
+    Items are stored in Redis with 2-hour TTL.
+    """
     from ...models.news import NewsFeed
-    import uuid
 
     results = []
     for url in urls:
@@ -82,6 +72,7 @@ async def fetch_feeds(
         mock_feed.id = str(uuid.uuid4())
         mock_feed.name = source_name
         mock_feed.url = url
+        mock_feed.reliability_score = 0.75
 
         items = await heartbeat_service.fetch_feed(mock_feed)
 
@@ -91,23 +82,28 @@ async def fetch_feeds(
             category = await heartbeat_service.classify_category(
                 item.get("title", ""), item.get("summary", "")
             )
-            item["category"] = category.value if hasattr(category, 'value') else str(category)
-            _feed_cache[item.get("url", item.get("title", ""))] = item
+            item["category"] = category.value if hasattr(category, "value") else str(category)
 
+            item_key = item.get("url") or item.get("title", str(uuid.uuid4()))
+            await redis_client.hset(FEED_CACHE_KEY, item_key, json.dumps(item, default=str))
+
+        await redis_client.expire(FEED_CACHE_KEY, 7200)
         results.append({"url": url, "items_fetched": len(items)})
 
-    return {"results": results, "total_in_cache": len(_feed_cache)}
+    total = await redis_client.hlen(FEED_CACHE_KEY)
+    return {"results": results, "total_in_cache": total}
 
 
 @router.get("/brief")
 async def get_editor_brief():
     """Get Editor Brief Intelligence — actionable summary for editors."""
-    items = list(_feed_cache.values())
+    items = await _get_all_items()
     if not items:
         return {
-            "brief": "ไม่มีข่าวในระบบ กรุณา fetch ข่าวก่อน",
+            "brief": "ไม่มีข่าวในระบบ กรุณาตั้งค่าแหล่งข่าวใน Settings หรือ fetch ด้วยตนเอง",
             "top_stories": [],
             "recommendations": [],
+            "total_items": 0,
         }
     return await heartbeat_service.generate_editor_brief(items)
 
@@ -115,15 +111,14 @@ async def get_editor_brief():
 @router.get("/items/breaking")
 async def get_breaking_news():
     """Get only breaking/urgent news items."""
-    items = [x for x in _feed_cache.values() if x.get("is_breaking") or x.get("needs_immediate_action")]
-    items = sorted(items, key=lambda x: x.get("editorial_weight", 0), reverse=True)
-    return {"items": items, "count": len(items)}
+    items = await _get_all_items()
+    breaking = [x for x in items if x.get("is_breaking") or x.get("needs_immediate_action")]
+    breaking = sorted(breaking, key=lambda x: x.get("editorial_weight", 0), reverse=True)
+    return {"items": breaking, "count": len(breaking)}
 
 
-@router.get("/items/{item_url:path}")
-async def get_news_item(item_url: str):
-    """Get a specific news item by URL."""
-    item = _feed_cache.get(item_url)
-    if not item:
-        raise HTTPException(status_code=404, detail="News item not found")
-    return item
+@router.delete("/cache")
+async def clear_feed_cache():
+    """Clear the feed cache (admin utility)."""
+    await redis_client.delete(FEED_CACHE_KEY)
+    return {"message": "Feed cache cleared"}

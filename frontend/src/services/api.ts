@@ -147,4 +147,86 @@ export const brainApi = {
   },
 }
 
+// ── Content Studio ─────────────────────────────────────────────────────────
+
+export const studioApi = {
+  generateImageSpec: async (params: {
+    title: string
+    summary: string
+    preferred_style?: string
+    preferred_ratio?: string
+    preferred_angle?: string
+  }) => {
+    const { data } = await api.post('/studio/image-spec', params)
+    return data
+  },
+
+  generateTTSScript: async (params: {
+    article_title: string
+    article_body: string
+    reading_tone?: string
+    voice_profile?: string
+    speed?: number
+  }) => {
+    const { data } = await api.post('/studio/tts/script', params)
+    return data
+  },
+
+  synthesizeAudio: async (params: {
+    tts_script: string
+    voice_profile?: string
+    speed?: number
+  }) => {
+    const { data } = await api.post('/studio/tts/generate', params)
+    return data
+  },
+
+  listVoices: async () => {
+    const { data } = await api.get('/studio/voices')
+    return data
+  },
+}
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export const settingsApi = {
+  listFeeds: async () => {
+    const { data } = await api.get('/settings/feeds')
+    return data
+  },
+
+  addFeed: async (params: { name: string; url: string; reliability_score?: number }) => {
+    const { data } = await api.post('/settings/feeds', params)
+    return data
+  },
+
+  removeFeed: async (feedId: string) => {
+    const { data } = await api.delete(`/settings/feeds/${feedId}`)
+    return data
+  },
+
+  loadThaiDefaults: async () => {
+    const { data } = await api.post('/settings/feeds/load-thai-defaults')
+    return data
+  },
+
+  getStyleConstitution: async () => {
+    const { data } = await api.get('/settings/style-constitution')
+    return data
+  },
+
+  saveStyleConstitution: async (params: {
+    formality_level?: number
+    preferred_structure?: string
+    forbidden_words?: string[]
+    brand_voice_markers?: string[]
+    avg_sentence_length?: number
+    requires_source_attribution?: boolean
+    min_sources_required?: number
+  }) => {
+    const { data } = await api.post('/settings/style-constitution', params)
+    return data
+  },
+}
+
 export default api

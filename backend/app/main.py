@@ -12,7 +12,12 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 
 from .config import settings
-from .api.routes import feed, draft, brain
+from .core.database import init_db
+from .core.redis_client import redis_client, FEED_SOURCES_KEY
+from .core.default_feeds import DEFAULT_THAI_FEEDS
+from .api.routes import feed, draft, brain, studio, settings as settings_router
+import json
+import uuid
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -25,9 +30,36 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan — startup and shutdown."""
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    # Initialize DB, Redis connections, etc.
+
+    # Initialize database tables
+    try:
+        await init_db()
+        logger.info("Database tables ready")
+    except Exception as e:
+        logger.warning(f"DB init skipped (no DB connection): {e}")
+
+    # Seed Thai default feeds if Redis has no sources yet
+    try:
+        existing = await redis_client.hlen(FEED_SOURCES_KEY)
+        if existing == 0:
+            for feed_data in DEFAULT_THAI_FEEDS:
+                source_id = str(uuid.uuid4())
+                await redis_client.hset(
+                    FEED_SOURCES_KEY,
+                    source_id,
+                    json.dumps({**feed_data, "id": source_id, "is_active": True}),
+                )
+            logger.info(f"Seeded {len(DEFAULT_THAI_FEEDS)} default Thai feed sources")
+    except Exception as e:
+        logger.warning(f"Redis seed skipped: {e}")
+
     yield
+
     logger.info("Shutting down AInewsroom")
+    try:
+        await redis_client.aclose()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -65,6 +97,8 @@ app.add_middleware(
 app.include_router(feed.router, prefix="/api/v1")
 app.include_router(draft.router, prefix="/api/v1")
 app.include_router(brain.router, prefix="/api/v1")
+app.include_router(studio.router, prefix="/api/v1")
+app.include_router(settings_router.router, prefix="/api/v1")
 
 
 # WebSocket manager for real-time feed updates
