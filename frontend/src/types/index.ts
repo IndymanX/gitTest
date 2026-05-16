@@ -192,6 +192,28 @@ export interface BrainMaturityReport {
   }
 }
 
+// Draft history
+export interface DraftHistoryItem {
+  id: string
+  title: string
+  body_preview: string
+  platform: Platform
+  format: ContentFormat
+  word_count: number
+  generated_at: string
+  news_title: string
+  full_draft: DraftContent
+}
+
+// User management
+export interface ManagedUser {
+  email: string
+  full_name: string
+  role: string
+  is_active: boolean
+  organization_id: string
+}
+
 // Content Studio
 export interface ContentStudioSettings {
   image_style: ImageStyle

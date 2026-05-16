@@ -3,7 +3,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import datetime
 import json
+import uuid
 
 from ...services.ai_drafting import AIDraftingService
 from ...services.copyright_analysis import CopyrightAnalysisService
@@ -11,8 +13,12 @@ from ...services.fact_checker import FactCheckerService
 from ...services.angle_generator import AngleGeneratorService
 from ...models.content import ContentFormat, Platform
 from ...workers.ai_tasks import detect_claims as detect_claims_task
+from ...core.redis_client import redis_client
 
 router = APIRouter(prefix="/draft", tags=["AI Drafting"])
+
+DRAFTS_HISTORY_KEY = "drafts:history"
+DRAFTS_HISTORY_MAX = 200
 
 drafting_service = AIDraftingService()
 copyright_service = CopyrightAnalysisService()
@@ -78,6 +84,21 @@ async def generate_draft(request: DraftRequest):
     )
 
     result = {"draft": draft}
+
+    # Persist to history (Redis list — newest first)
+    history_record = {
+        "id": str(uuid.uuid4()),
+        "title": draft.get("title", ""),
+        "body_preview": (draft.get("body", ""))[:200],
+        "platform": request.platform,
+        "format": request.format,
+        "word_count": draft.get("word_count", 0),
+        "generated_at": datetime.utcnow().isoformat(),
+        "news_title": request.news_item.get("title", ""),
+        "full_draft": draft,
+    }
+    await redis_client.lpush(DRAFTS_HISTORY_KEY, json.dumps(history_record))
+    await redis_client.ltrim(DRAFTS_HISTORY_KEY, 0, DRAFTS_HISTORY_MAX - 1)
 
     # Auto copyright check
     if request.auto_check_copyright:
@@ -176,6 +197,15 @@ async def repurpose_content(request: RepurposeRequest):
         original_article=request.original_article,
         original_title=request.original_title,
     )
+
+
+@router.get("/history")
+async def get_draft_history(limit: int = 50):
+    """Return recent draft history (newest first, max 200)."""
+    limit = min(limit, DRAFTS_HISTORY_MAX)
+    raw_items = await redis_client.lrange(DRAFTS_HISTORY_KEY, 0, limit - 1)
+    items = [json.loads(r) for r in raw_items]
+    return {"items": items, "total": len(items)}
 
 
 @router.post("/adapt/{platform}")

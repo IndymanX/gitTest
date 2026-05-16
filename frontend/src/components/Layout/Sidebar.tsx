@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
-  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut,
+  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut, History, Shield,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/', icon: Radio, label: 'Feed Heartbeat', badge: 'Live' },
   { to: '/brief', icon: Brain, label: 'Editor Brief' },
   { to: '/draft', icon: FileText, label: 'AI Drafting' },
+  { to: '/history', icon: History, label: 'ประวัติบทความ' },
   { to: '/angles', icon: Layers, label: 'Angle Generator' },
   { to: '/studio', icon: Mic, label: 'Content Studio' },
   { to: '/publisher', icon: Send, label: 'Publisher' },
@@ -60,6 +61,20 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t px-2 py-3 space-y-1">
+        {user?.role === 'admin' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => clsx(
+              'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-red-50 text-red-700'
+                : 'text-gray-500 hover:bg-gray-50',
+            )}
+          >
+            <Shield size={16} />
+            จัดการผู้ใช้
+          </NavLink>
+        )}
         <NavLink
           to="/settings"
           className={({ isActive }) => clsx(

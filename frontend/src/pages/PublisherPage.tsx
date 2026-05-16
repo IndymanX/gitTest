@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { draftApi, publisherApi } from '../services/api'
 import type { Platform } from '../types'
-import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send, Radio } from 'lucide-react'
+import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send, Radio, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 
@@ -95,6 +95,36 @@ export default function PublisherPage() {
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const printArticle = () => {
+    const printWin = window.open('', '_blank', 'width=800,height=900')
+    if (!printWin) return
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Sarabun', 'Noto Sans Thai', sans-serif; font-size: 14pt; line-height: 1.8; color: #111; padding: 2cm 2.5cm; }
+    h1 { font-size: 22pt; font-weight: bold; margin-bottom: 0.5em; line-height: 1.3; }
+    .platform { font-size: 9pt; color: #666; margin-bottom: 1.5em; text-transform: uppercase; letter-spacing: 1px; }
+    .body { white-space: pre-wrap; text-align: justify; }
+    .footer { margin-top: 2em; font-size: 9pt; color: #999; border-top: 1px solid #ddd; padding-top: 0.5em; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <div class="platform">แพลตฟอร์ม: ${activePlatform} · ${new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+  <div class="body">${(currentText || body).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+  <div class="footer">สร้างโดย AInewsroom · Editorial Intelligence</div>
+</body>
+</html>`)
+    printWin.document.close()
+    printWin.focus()
+    setTimeout(() => { printWin.print(); printWin.close() }, 400)
   }
 
   return (
@@ -218,6 +248,12 @@ export default function PublisherPage() {
                       className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600 border rounded-lg px-2.5 py-1.5"
                     >
                       <Download size={12} /> .md
+                    </button>
+                    <button
+                      onClick={printArticle}
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-violet-600 border rounded-lg px-2.5 py-1.5"
+                    >
+                      <Printer size={12} /> พิมพ์
                     </button>
                     {PUBLISHABLE.includes(activePlatform) && publishStatus?.[activePlatform as keyof typeof publishStatus] && (
                       <button

@@ -4,6 +4,7 @@ import type {
   DraftContent, CopyrightAnalysis, FactCheckResult,
   ContentAngle, ContentFormat, Platform,
   BrainProfile, BrainMaturityReport,
+  DraftHistoryItem, ManagedUser,
 } from '../types'
 
 const api = axios.create({
@@ -113,6 +114,11 @@ export const draftApi = {
 
   adaptForPlatform: async (platform: Platform, params: { title: string; body: string }) => {
     const { data } = await api.post(`/draft/adapt/${platform}`, params)
+    return data
+  },
+
+  getHistory: async (limit = 50): Promise<{ items: DraftHistoryItem[]; total: number }> => {
+    const { data } = await api.get('/draft/history', { params: { limit } })
     return data
   },
 }
@@ -322,6 +328,20 @@ export const authApi = {
   check: async (): Promise<{ has_users: boolean; user_count: number }> => {
     const { data } = await api.get('/auth/check')
     return data
+  },
+
+  listUsers: async (): Promise<{ users: ManagedUser[]; total: number }> => {
+    const { data } = await api.get('/auth/users')
+    return data
+  },
+
+  updateUser: async (email: string, updates: { role?: string; is_active?: boolean; full_name?: string }): Promise<ManagedUser> => {
+    const { data } = await api.patch(`/auth/users/${encodeURIComponent(email)}`, updates)
+    return data
+  },
+
+  deleteUser: async (email: string): Promise<void> => {
+    await api.delete(`/auth/users/${encodeURIComponent(email)}`)
   },
 }
 

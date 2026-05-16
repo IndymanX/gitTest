@@ -8,6 +8,8 @@ import BrainMaturityPage from './pages/BrainMaturityPage'
 import ContentStudioPage from './pages/ContentStudioPage'
 import SettingsPage from './pages/SettingsPage'
 import PublisherPage from './pages/PublisherPage'
+import HistoryPage from './pages/HistoryPage'
+import AdminPage from './pages/AdminPage'
 import LoginPage from './pages/LoginPage'
 
 const queryClient = new QueryClient({
@@ -54,6 +56,8 @@ function AppShell() {
           <Route path="/brain" element={<BrainMaturityPage />} />
           <Route path="/studio" element={<ContentStudioPage />} />
           <Route path="/publisher" element={<PublisherPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
