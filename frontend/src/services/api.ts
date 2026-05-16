@@ -12,6 +12,15 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Inject auth token + optional API key on every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  const apiKey = import.meta.env.VITE_API_KEY
+  if (apiKey) config.headers['X-API-Key'] = apiKey
+  return config
+})
+
 // ── Feed Heartbeat ──────────────────────────────────────────────────────────
 
 export const feedApi = {
@@ -269,6 +278,49 @@ export const publisherApi = {
 export const factCheckApi = {
   getStatus: async (taskId: string) => {
     const { data } = await api.get(`/draft/factcheck/status/${taskId}`)
+    return data
+  },
+}
+
+// ── Authentication ──────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  email: string
+  full_name: string
+  role: string
+  is_active: boolean
+  organization_id: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  user: AuthUser
+}
+
+export const authApi = {
+  register: async (params: { email: string; password: string; full_name: string; role?: string }): Promise<AuthResponse> => {
+    const { data } = await api.post<AuthResponse>('/auth/register', params)
+    return data
+  },
+
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const form = new URLSearchParams()
+    form.set('username', email)
+    form.set('password', password)
+    const { data } = await api.post<AuthResponse>('/auth/login', form, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    return data
+  },
+
+  me: async (): Promise<AuthUser> => {
+    const { data } = await api.get<AuthUser>('/auth/me')
+    return data
+  },
+
+  check: async (): Promise<{ has_users: boolean; user_count: number }> => {
+    const { data } = await api.get('/auth/check')
     return data
   },
 }

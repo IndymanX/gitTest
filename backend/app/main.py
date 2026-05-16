@@ -16,8 +16,8 @@ from .core.database import init_db
 from .core.redis_client import redis_client, FEED_SOURCES_KEY
 from .core.default_feeds import DEFAULT_THAI_FEEDS
 from .core.auth import require_api_key
-from .api.routes import feed, draft, brain, studio, settings as settings_router, publisher
-import json
+from .api.routes import feed, draft, brain, studio, settings as settings_router, publisher, auth as auth_router
+from .core.redis_client import FEED_PUBSUB_CHANNEL
 import uuid
 
 logging.basicConfig(
@@ -54,7 +54,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Redis seed skipped: {e}")
 
+    # Start Redis pub/sub listener — broadcasts feed updates to all WebSocket clients
+    pubsub_task = asyncio.create_task(_redis_pubsub_listener())
+
     yield
+
+    pubsub_task.cancel()
+    try:
+        await pubsub_task
+    except asyncio.CancelledError:
+        pass
 
     logger.info("Shutting down AInewsroom")
     try:
@@ -96,6 +105,7 @@ app.add_middleware(
 
 # Register routers — all protected by API key (no-op when API_KEY is empty)
 _auth = [require_api_key]
+app.include_router(auth_router.router, prefix="/api/v1")  # public — no API key required
 app.include_router(feed.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(draft.router, prefix="/api/v1", dependencies=_auth)
 app.include_router(brain.router, prefix="/api/v1", dependencies=_auth)
@@ -130,13 +140,34 @@ class ConnectionManager:
 ws_manager = ConnectionManager()
 
 
+async def _redis_pubsub_listener():
+    """Background task: subscribe to Redis feed channel, broadcast to WebSocket clients."""
+    pubsub = redis_client.pubsub()
+    try:
+        await pubsub.subscribe(FEED_PUBSUB_CHANNEL)
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    payload = json.loads(message["data"])
+                    await ws_manager.broadcast(payload)
+                except Exception as e:
+                    logger.debug(f"WS broadcast error: {e}")
+    except asyncio.CancelledError:
+        pass
+    finally:
+        try:
+            await pubsub.unsubscribe(FEED_PUBSUB_CHANNEL)
+            await pubsub.aclose()
+        except Exception:
+            pass
+
+
 @app.websocket("/ws/feed")
 async def websocket_feed(websocket: WebSocket):
     """WebSocket endpoint for real-time feed updates."""
     await ws_manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive, send pings
             await asyncio.sleep(30)
             await websocket.send_json({"type": "ping", "timestamp": datetime.utcnow().isoformat()})
     except WebSocketDisconnect:

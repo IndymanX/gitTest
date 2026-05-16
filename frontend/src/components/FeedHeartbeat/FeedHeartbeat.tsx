@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { feedApi } from '../../services/api'
 import type { NewsItem, FeedStats } from '../../types'
@@ -42,6 +42,27 @@ export default function FeedHeartbeat({ onSelectItem }: Props) {
     }),
     refetchInterval: 60000,
   })
+
+  // WebSocket — live feed updates via Redis pub/sub
+  const wsRef = useRef<WebSocket | null>(null)
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/feed`)
+    wsRef.current = ws
+
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data)
+        if (msg.type === 'feed_update') {
+          refetchFeed()
+          refetchStats()
+          if (msg.breaking) toast.info(`Breaking: ${msg.title || 'ข่าวด่วน'}`, { duration: 6000 })
+        }
+      } catch {}
+    }
+
+    return () => ws.close()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchMutation = useMutation({
     mutationFn: (urls: string[]) => feedApi.fetchUrls(urls),

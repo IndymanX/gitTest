@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
-  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send,
+  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut,
 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/', icon: Radio, label: 'Feed Heartbeat', badge: 'Live' },
@@ -15,6 +16,8 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar() {
+  const { user, logout } = useAuth()
+
   return (
     <aside className="w-56 bg-white border-r flex flex-col h-full shrink-0">
       {/* Logo */}
@@ -56,7 +59,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t px-2 py-3">
+      <div className="border-t px-2 py-3 space-y-1">
         <NavLink
           to="/settings"
           className={({ isActive }) => clsx(
@@ -69,10 +72,26 @@ export default function Sidebar() {
           <Settings size={16} />
           ตั้งค่าระบบ
         </NavLink>
-        <div className="px-3 mt-3">
-          <div className="text-xs text-gray-400">Developed by</div>
-          <div className="text-xs font-medium text-gray-600">Rawee(Guss) & Team</div>
-        </div>
+
+        {user && (
+          <div className="px-3 pt-2">
+            <div className="text-xs font-medium text-gray-700 truncate">{user.full_name}</div>
+            <div className="text-xs text-gray-400 truncate">{user.email}</div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full capitalize">
+                {user.role}
+              </span>
+              <button
+                onClick={logout}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                title="ออกจากระบบ"
+              >
+                <LogOut size={12} />
+                ออก
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )
