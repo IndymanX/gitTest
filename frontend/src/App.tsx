@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { NotificationProvider } from './context/NotificationContext'
+import BreakingNewsBanner from './components/BreakingNewsBanner'
 import Sidebar from './components/Layout/Sidebar'
 import DashboardPage from './pages/DashboardPage'
 import BrainMaturityPage from './pages/BrainMaturityPage'
@@ -10,6 +12,8 @@ import SettingsPage from './pages/SettingsPage'
 import PublisherPage from './pages/PublisherPage'
 import HistoryPage from './pages/HistoryPage'
 import AdminPage from './pages/AdminPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import SchedulerPage from './pages/SchedulerPage'
 import LoginPage from './pages/LoginPage'
 
 const queryClient = new QueryClient({
@@ -45,24 +49,29 @@ function AppShell() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 min-w-0 overflow-hidden">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/brief" element={<DashboardPage />} />
-          <Route path="/draft" element={<DashboardPage />} />
-          <Route path="/angles" element={<DashboardPage />} />
-          <Route path="/brain" element={<BrainMaturityPage />} />
-          <Route path="/studio" element={<ContentStudioPage />} />
-          <Route path="/publisher" element={<PublisherPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-    </div>
+    <NotificationProvider>
+      <BreakingNewsBanner />
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 min-w-0 overflow-hidden">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/brief" element={<DashboardPage />} />
+            <Route path="/draft" element={<DashboardPage />} />
+            <Route path="/angles" element={<DashboardPage />} />
+            <Route path="/brain" element={<BrainMaturityPage />} />
+            <Route path="/studio" element={<ContentStudioPage />} />
+            <Route path="/publisher" element={<PublisherPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/schedule" element={<SchedulerPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </NotificationProvider>
   )
 }
 

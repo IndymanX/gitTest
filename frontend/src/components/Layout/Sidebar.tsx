@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
-  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut, History, Shield,
+  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut, History, Shield, TrendingUp, CalendarClock,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -13,7 +13,9 @@ const NAV_ITEMS = [
   { to: '/angles', icon: Layers, label: 'Angle Generator' },
   { to: '/studio', icon: Mic, label: 'Content Studio' },
   { to: '/publisher', icon: Send, label: 'Publisher' },
+  { to: '/schedule', icon: CalendarClock, label: 'ตั้งเวลาโพสต์' },
   { to: '/brain', icon: BarChart2, label: 'Brain Maturity' },
+  { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
 ]
 
 export default function Sidebar() {

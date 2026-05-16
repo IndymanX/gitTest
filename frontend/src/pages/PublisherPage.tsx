@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { draftApi, publisherApi } from '../services/api'
+import { draftApi, publisherApi, schedulerApi } from '../services/api'
 import type { Platform } from '../types'
-import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send, Radio, Printer } from 'lucide-react'
+import { Copy, Download, Globe, Facebook, Twitter, MessageSquare, Youtube, Send, Radio, Printer, CalendarClock } from 'lucide-react'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 
@@ -36,6 +36,8 @@ export default function PublisherPage() {
   const [activePlatform, setActivePlatform] = useState<Platform>('website')
   const [adaptedContent, setAdaptedContent] = useState<Record<string, string>>({})
   const [publishResults, setPublishResults] = useState<Record<string, string>>({})
+  const [scheduleAt, setScheduleAt] = useState('')
+  const [showSchedule, setShowSchedule] = useState(false)
 
   const { data: publishStatus } = useQuery({
     queryKey: ['publish-status'],
@@ -78,6 +80,21 @@ export default function PublisherPage() {
     if (!title.trim() || !body.trim()) return
     PLATFORMS.forEach(p => adaptMutation.mutate(p.id))
   }
+
+  const scheduleMutation = useMutation({
+    mutationFn: () => schedulerApi.create({
+      title,
+      body: adaptedContent[activePlatform] || body,
+      platforms: PUBLISHABLE.includes(activePlatform) ? [activePlatform] : ['line'],
+      scheduled_at: scheduleAt,
+    }),
+    onSuccess: () => {
+      toast.success('ตั้งเวลาโพสต์สำเร็จ')
+      setShowSchedule(false)
+      setScheduleAt('')
+    },
+    onError: () => toast.error('เกิดข้อผิดพลาดในการตั้งเวลา'),
+  })
 
   const currentText = adaptedContent[activePlatform] ?? ''
   const platform = PLATFORMS.find(p => p.id === activePlatform)!
@@ -265,10 +282,41 @@ export default function PublisherPage() {
                         {publishMutation.isPending ? 'กำลังส่ง...' : 'เผยแพร่'}
                       </button>
                     )}
+                    {PUBLISHABLE.includes(activePlatform) && (
+                      <button
+                        onClick={() => setShowSchedule(!showSchedule)}
+                        className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 border border-amber-200 rounded-lg px-2.5 py-1.5"
+                      >
+                        <CalendarClock size={12} />
+                        ตั้งเวลา
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             </div>
+
+            {/* Schedule picker */}
+            {showSchedule && (
+              <div className="px-4 py-3 border-b bg-amber-50 flex items-center gap-3 flex-wrap">
+                <CalendarClock size={14} className="text-amber-600 shrink-0" />
+                <span className="text-xs font-medium text-amber-700">ตั้งเวลาเผยแพร่</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={e => setScheduleAt(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  className="text-xs border rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+                <button
+                  onClick={() => scheduleMutation.mutate()}
+                  disabled={!scheduleAt || scheduleMutation.isPending}
+                  className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {scheduleMutation.isPending ? 'กำลังตั้ง...' : 'ยืนยันเวลา'}
+                </button>
+              </div>
+            )}
 
             {/* Content area */}
             <div className="flex-1 p-4">

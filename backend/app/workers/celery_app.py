@@ -22,6 +22,7 @@ celery_app = Celery(
     include=[
         "app.workers.feed_tasks",
         "app.workers.ai_tasks",
+        "app.workers.scheduler_tasks",
     ],
 )
 
@@ -37,11 +38,16 @@ celery_app.conf.update(
         "app.workers.ai_tasks.generate_draft": {"queue": "ai_heavy"},
         "app.workers.ai_tasks.generate_angles": {"queue": "ai_heavy"},
         "app.workers.ai_tasks.detect_claims": {"queue": "ai_light"},
+        "app.workers.scheduler_tasks.*": {"queue": "publish"},
     },
     beat_schedule={
         "poll-all-feeds-every-5-min": {
             "task": "app.workers.feed_tasks.poll_all_feeds",
-            "schedule": 300.0,  # every 5 minutes
+            "schedule": 300.0,
+        },
+        "process-scheduled-posts-every-minute": {
+            "task": "app.workers.scheduler_tasks.process_scheduled_posts",
+            "schedule": 60.0,  # every 60 seconds
         },
     },
     worker_prefetch_multiplier=1,

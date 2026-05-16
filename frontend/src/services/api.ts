@@ -281,6 +281,42 @@ export const publisherApi = {
 
 // ── Fact-check polling ──────────────────────────────────────────────────────
 
+// ── Analytics ───────────────────────────────────────────────────────────────
+
+export const analyticsApi = {
+  getSummary: async () => {
+    const { data } = await api.get('/analytics/summary')
+    return data
+  },
+}
+
+// ── Content Scheduler ───────────────────────────────────────────────────────
+
+export const schedulerApi = {
+  create: async (params: {
+    title: string
+    body: string
+    platforms: string[]
+    scheduled_at: string
+    link?: string
+  }) => {
+    const { data } = await api.post('/schedule', params)
+    return data
+  },
+
+  list: async (): Promise<{ posts: unknown[]; total: number }> => {
+    const { data } = await api.get('/schedule')
+    return data
+  },
+
+  cancel: async (postId: string) => {
+    const { data } = await api.delete(`/schedule/${postId}`)
+    return data
+  },
+}
+
+// ── Fact-check polling ──────────────────────────────────────────────────────
+
 export const factCheckApi = {
   getStatus: async (taskId: string) => {
     const { data } = await api.get(`/draft/factcheck/status/${taskId}`)
