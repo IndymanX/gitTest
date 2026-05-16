@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { draftApi, factCheckApi } from '../../services/api'
 import type { NewsItem, DraftContent, CopyrightAnalysis, FactCheckResult, Platform, ContentFormat } from '../../types'
-import { FileText, Zap, Copy, RefreshCw, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { FileText, Zap, Copy, RefreshCw, ChevronDown, ChevronUp, Loader2, Languages } from 'lucide-react'
 import { clsx } from 'clsx'
 import { toast } from 'sonner'
 import CopyrightPanel from '../CopyrightAnalysis/CopyrightPanel'
@@ -76,6 +76,15 @@ export default function AIDrafting({ selectedItem }: Props) {
       toast.success('สร้างบทความสำเร็จ')
     },
     onError: () => toast.error('เกิดข้อผิดพลาดในการสร้างบทความ'),
+  })
+
+  const translateMutation = useMutation({
+    mutationFn: (targetLanguage: 'en' | 'th') => draftApi.translate(editedBody, targetLanguage),
+    onSuccess: (data) => {
+      setEditedBody(data.translated)
+      toast.success(`แปลเป็น${data.target_language === 'en' ? 'อังกฤษ' : 'ไทย'}แล้ว`)
+    },
+    onError: () => toast.error('เกิดข้อผิดพลาดในการแปล'),
   })
 
   const reCopyrightMutation = useMutation({
@@ -212,16 +221,34 @@ export default function AIDrafting({ selectedItem }: Props) {
                 onChange={e => setEditedBody(e.target.value)}
                 className="w-full text-sm text-gray-700 leading-relaxed resize-none focus:outline-none min-h-[300px]"
               />
-              {editedBody !== draft.body && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                {editedBody !== draft.body && (
+                  <button
+                    onClick={() => reCopyrightMutation.mutate()}
+                    disabled={reCopyrightMutation.isPending}
+                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700"
+                  >
+                    <RefreshCw size={10} />
+                    ตรวจลิขสิทธิ์ฉบับแก้ไข
+                  </button>
+                )}
                 <button
-                  onClick={() => reCopyrightMutation.mutate()}
-                  disabled={reCopyrightMutation.isPending}
-                  className="mt-2 flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700"
+                  onClick={() => translateMutation.mutate('en')}
+                  disabled={translateMutation.isPending || !editedBody}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border rounded px-2 py-0.5 disabled:opacity-50"
                 >
-                  <RefreshCw size={10} />
-                  ตรวจลิขสิทธิ์ฉบับแก้ไข
+                  <Languages size={10} />
+                  {translateMutation.isPending ? 'กำลังแปล...' : '→ EN'}
                 </button>
-              )}
+                <button
+                  onClick={() => translateMutation.mutate('th')}
+                  disabled={translateMutation.isPending || !editedBody}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border rounded px-2 py-0.5 disabled:opacity-50"
+                >
+                  <Languages size={10} />
+                  {translateMutation.isPending ? 'กำลังแปล...' : '→ TH'}
+                </button>
+              </div>
             </div>
 
             {/* SEO collapsible */}

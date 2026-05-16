@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
@@ -14,6 +15,8 @@ import HistoryPage from './pages/HistoryPage'
 import AdminPage from './pages/AdminPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SchedulerPage from './pages/SchedulerPage'
+import ReviewQueuePage from './pages/ReviewQueuePage'
+import SearchModal from './components/Search/SearchModal'
 import LoginPage from './pages/LoginPage'
 
 const queryClient = new QueryClient({
@@ -27,6 +30,19 @@ const queryClient = new QueryClient({
 
 function AppShell() {
   const { user, isLoading } = useAuth()
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // Global Cmd+K / Ctrl+K listener
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   if (isLoading) {
     return (
@@ -51,8 +67,9 @@ function AppShell() {
   return (
     <NotificationProvider>
       <BreakingNewsBanner />
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar />
+        <Sidebar onSearchOpen={() => setSearchOpen(true)} />
         <main className="flex-1 min-w-0 overflow-hidden">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
@@ -66,6 +83,7 @@ function AppShell() {
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/schedule" element={<SchedulerPage />} />
+            <Route path="/review" element={<ReviewQueuePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

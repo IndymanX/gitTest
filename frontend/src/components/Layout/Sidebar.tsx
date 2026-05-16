@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
-  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut, History, Shield, TrendingUp, CalendarClock,
+  Radio, Brain, FileText, Layers, Mic, BarChart2, Settings, Send, LogOut, History, Shield, TrendingUp, CalendarClock, ClipboardCheck, Search,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/brief', icon: Brain, label: 'Editor Brief' },
   { to: '/draft', icon: FileText, label: 'AI Drafting' },
   { to: '/history', icon: History, label: 'ประวัติบทความ' },
+  { to: '/review', icon: ClipboardCheck, label: 'คิวตรวจสอบ' },
   { to: '/angles', icon: Layers, label: 'Angle Generator' },
   { to: '/studio', icon: Mic, label: 'Content Studio' },
   { to: '/publisher', icon: Send, label: 'Publisher' },
@@ -18,7 +19,11 @@ const NAV_ITEMS = [
   { to: '/analytics', icon: TrendingUp, label: 'Analytics' },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  onSearchOpen?: () => void
+}
+
+export default function Sidebar({ onSearchOpen }: SidebarProps) {
   const { user, logout } = useAuth()
 
   return (
@@ -36,8 +41,22 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* Search button */}
+      {onSearchOpen && (
+        <div className="px-2 py-2 border-b">
+          <button
+            onClick={onSearchOpen}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 bg-gray-50 hover:bg-gray-100 transition-colors"
+          >
+            <Search size={14} />
+            <span className="flex-1 text-left">ค้นหา...</span>
+            <kbd className="text-xs border rounded px-1 py-0.5 bg-white">⌘K</kbd>
+          </button>
+        </div>
+      )}
+
       {/* Nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5">
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}

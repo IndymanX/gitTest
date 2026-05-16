@@ -61,6 +61,11 @@ class RepurposeRequest(BaseModel):
     target_platforms: List[str] = ["facebook", "twitter", "line"]
 
 
+class TranslateRequest(BaseModel):
+    text: str
+    target_language: str = "en"  # "en" or "th"
+
+
 @router.post("/generate")
 async def generate_draft(request: DraftRequest):
     """
@@ -197,6 +202,25 @@ async def repurpose_content(request: RepurposeRequest):
         original_article=request.original_article,
         original_title=request.original_title,
     )
+
+
+@router.post("/translate")
+async def translate_draft(request: TranslateRequest):
+    """Translate draft text Thai ↔ English using Claude Haiku."""
+    from ...core.claude_client import claude
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="ไม่มีข้อความที่จะแปล")
+    lang_label = "English" if request.target_language == "en" else "Thai (ภาษาไทย)"
+    translated = await claude.complete(
+        prompt=(
+            f"Translate the following text to {lang_label}. "
+            "Preserve all paragraphs and structure. Return only the translated text, no explanations.\n\n"
+            + request.text
+        ),
+        max_tokens=4096,
+        use_fast_model=True,
+    )
+    return {"translated": translated, "target_language": request.target_language}
 
 
 @router.get("/history")

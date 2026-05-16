@@ -121,6 +121,11 @@ export const draftApi = {
     const { data } = await api.get('/draft/history', { params: { limit } })
     return data
   },
+
+  translate: async (text: string, targetLanguage: 'en' | 'th'): Promise<{ translated: string; target_language: string }> => {
+    const { data } = await api.post('/draft/translate', { text, target_language: targetLanguage })
+    return data
+  },
 }
 
 // ── Brain Maturity ─────────────────────────────────────────────────────────
@@ -280,6 +285,48 @@ export const publisherApi = {
 }
 
 // ── Fact-check polling ──────────────────────────────────────────────────────
+
+// ── Editorial Workflow ──────────────────────────────────────────────────────
+
+export const workflowApi = {
+  submit: async (params: {
+    draft_id: string; title: string; body: string
+    platform?: string; format?: string; word_count?: number
+    news_title?: string; note?: string
+  }) => {
+    const { data } = await api.post('/workflow/submit', params)
+    return data
+  },
+
+  getQueue: async () => {
+    const { data } = await api.get('/workflow/queue')
+    return data
+  },
+
+  getMine: async () => {
+    const { data } = await api.get('/workflow/mine')
+    return data
+  },
+
+  getStatuses: async (): Promise<Record<string, { status: string; review_comment: string; reviewed_by: string | null }>> => {
+    const { data } = await api.get('/workflow/statuses')
+    return data
+  },
+
+  review: async (draftId: string, action: 'approve' | 'reject', comment = '') => {
+    const { data } = await api.patch(`/workflow/${draftId}`, { action, comment })
+    return data
+  },
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+export const searchApi = {
+  search: async (q: string, type = 'all', limit = 20) => {
+    const { data } = await api.get('/search', { params: { q, type, limit } })
+    return data
+  },
+}
 
 // ── Analytics ───────────────────────────────────────────────────────────────
 
